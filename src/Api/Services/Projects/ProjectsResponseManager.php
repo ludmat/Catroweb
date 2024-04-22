@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Api\Services\Projects;
 
 use App\Api\Services\Base\AbstractResponseManager;
@@ -8,6 +10,7 @@ use App\Api\Services\ResponseCache\ResponseCacheManager;
 use App\DB\Entity\Project\Extension;
 use App\DB\Entity\Project\Program;
 use App\DB\Entity\Project\Special\FeaturedProgram;
+use App\DB\Entity\Project\Special\SpecialProgram;
 use App\DB\Entity\Project\Tag;
 use App\Project\ProjectManager;
 use App\Storage\ImageRepository;
@@ -45,7 +48,7 @@ class ProjectsResponseManager extends AbstractResponseManager
   /**
    * @param ?string $attributes Comma-separated list of attributes to include into response
    */
-  public function createProjectDataResponse(Program $project, ?string $attributes): ProjectResponse
+  public function createProjectDataResponse(Program|SpecialProgram $project, ?string $attributes): ProjectResponse
   {
     if (empty($attributes)) {
       $attributes_list = ['id', 'name', 'author', 'views', 'downloads', 'flavor', 'uploaded_string', 'screenshot_large', 'screenshot_small', 'project_url'];
@@ -58,8 +61,9 @@ class ProjectsResponseManager extends AbstractResponseManager
       $attributes_list[] = 'uploaded'; // TODO: hotfix for Catroid. Remove after Catroid uses attributes-parameter.
       $attributes_list[] = 'download_url'; // TODO: hotfix for Catroid. Remove after Catroid uses attributes-parameter.
       $attributes_list[] = 'filesize'; // TODO: hotfix for Catroid. Remove after Catroid uses attributes-parameter.
+      $attributes_list[] = 'not_for_kids'; // TODO: hotfix for Catroid. Remove after Catroid uses attributes-parameter.
     } elseif ('ALL' === $attributes) {
-      $attributes_list = ['id', 'name', 'author', 'description', 'credits', 'version', 'views', 'downloads', 'reactions', 'comments', 'private', 'flavor', 'tags', 'uploaded', 'uploaded_string', 'screenshot_large', 'screenshot_small', 'project_url', 'download_url', 'filesize'];
+      $attributes_list = ['id', 'name', 'author', 'description', 'credits', 'version', 'views', 'downloads', 'reactions', 'comments', 'private', 'flavor', 'tags', 'uploaded', 'uploaded_string', 'screenshot_large', 'screenshot_small', 'project_url', 'download_url', 'filesize', 'not_for_kids'];
       $attributes_list[] = 'download'; // TODO: hotfix for Catty + Catroid. Remove after Catty + Catroid uses attributes-parameter.
     } else {
       $attributes_list = explode(',', $attributes);
@@ -147,6 +151,9 @@ class ProjectsResponseManager extends AbstractResponseManager
     }
     if (in_array('filesize', $attributes_list, true)) {
       $data['filesize'] = ($extraced_project->getFilesize() / 1_048_576);
+    }
+    if (in_array('not_for_kids', $attributes_list, true)) {
+      $data['not_for_kids'] = $project->getNotForKids();
     }
 
     return new ProjectResponse($data);

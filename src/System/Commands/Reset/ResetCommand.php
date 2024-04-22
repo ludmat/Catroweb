@@ -1,18 +1,21 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\System\Commands\Reset;
 
 use App\DB\Entity\Project\Program;
-use App\DB\Entity\User\User;
 use App\DB\EntityRepository\Project\ProgramRepository;
 use App\System\Commands\Helpers\CommandHelper;
 use App\System\Commands\ImportProjects\ProgramImportCommand;
+use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 
+#[AsCommand(name: 'catrobat:reset', description: 'Resets everything to base values')]
 class ResetCommand extends Command
 {
   final public const DOWNLOAD_PROGRAMS_DEFAULT_AMOUNT = '30';
@@ -26,8 +29,7 @@ class ResetCommand extends Command
 
   protected function configure(): void
   {
-    $this->setName('catrobat:reset')
-      ->setDescription('Resets everything to base values')
+    $this
       ->addOption('hard')
       ->addOption('limit', null, InputOption::VALUE_REQUIRED,
         'Downloads the given amount of projects',
@@ -124,6 +126,7 @@ class ResetCommand extends Command
     $this->followUsers($user_array, $output);
     $this->downloadProjects($program_names, $user_array, $output);
     $this->exampleProject($program_names, $output);
+    $this->markNotForKids($program_names, $output);
 
     // https://share.catrob.at/app/project/{id_of_project}/remix_graph_data to get remixes
 
@@ -497,6 +500,24 @@ class ResetCommand extends Command
       if (0 !== $ret) {
         // Might fail because of missing screenshots!
         $output->writeln('Setting project to example failed for '.json_encode($parameters, JSON_THROW_ON_ERROR).' error code: '.$ret);
+      }
+    }
+  }
+
+  private function markNotForKids(array $program_names, OutputInterface $output): void
+  {
+    foreach ($program_names as $program_name) {
+      $mark = random_int(1, 100);
+      if ($mark <= 15) {
+        $parameters = [
+          'program_name' => $program_name,
+          'type' => random_int(1, 2),
+        ];
+        $ret = CommandHelper::executeSymfonyCommand('catrobat:notforkids', $this->getApplication(), $parameters, $output);
+
+        if (0 !== $ret) {
+          $output->writeln('Marking project not safe for kids failed for '.json_encode($parameters, JSON_THROW_ON_ERROR).' error code: '.$ret);
+        }
       }
     }
   }

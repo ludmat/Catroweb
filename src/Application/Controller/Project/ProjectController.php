@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Application\Controller\Project;
 
 use App\Api\Services\Projects\ProjectsRequestValidator;
@@ -29,12 +31,15 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 class ProjectController extends AbstractController
 {
+  public const NOT_FOR_KIDS = 1;
+  public const NOT_FOR_KIDS_MODERATOR = 2;
+
   public function __construct(
     private readonly ScreenshotRepository $screenshot_repository,
     private readonly ProjectManager $project_manager,
@@ -48,20 +53,15 @@ class ProjectController extends AbstractController
     private readonly ProjectFileRepository $file_repository,
     private readonly TranslationDelegate $translation_delegate,
     private readonly EntityManagerInterface $entity_manager,
-    private readonly UserCommentRepository $comment_repository
+    private readonly UserCommentRepository $comment_repository,
+    private readonly ProjectCustomTranslationRepository $projectCustomTranslationRepository
   ) {
   }
 
-  /**
-   * Legacy routes:.
-   *
-   * Legacy routesdump('Page loaded');
-   */
   #[Route(path: '/project/{id}', name: 'program', defaults: ['id' => 0])]
   #[Route(path: '/program/{id}', name: 'program_deprecated')]
   #[Route(path: '/details/{id}', name: 'catrobat_web_detail', methods: ['GET'])]
-  #[Route(path: '/steal/{id}', name: 'steal_project', methods: ['POST'])]
-  public function projectAction(Request $request, string $id): Response
+  public function project(Request $request, string $id): Response
   {
     $project = $this->project_manager->findProjectIfVisibleToCurrentUser($id);
     if (null === $project) {
@@ -76,7 +76,6 @@ class ProjectController extends AbstractController
     $this->checkAndAddViewed($request, $project, $viewed);
     $referrer = $request->headers->get('referer');
     $request->getSession()->set('referer', $referrer);
-
     /** @var User|null $user */
     $user = $this->getUser();
     $logged_in = null !== $user;
@@ -97,19 +96,6 @@ class ProjectController extends AbstractController
       $project, $active_like_types, $active_user_like_types, $total_like_count,
       $referrer, $project_comment_list
     );
-        $can_steal = $logged_in && !$my_project;
-
-      if ($can_steal && $request->request->get('steal_project')) {
-
-          $project->setUser($user);
-          $this->entity_manager->persist($project);
-          $this->entity_manager->flush();
-
-          $this->addFlash('success', 'You successfully stole the project!');
-          return $this->redirectToRoute('program', ['id' => $id]);
-
-      }
-
 
     return $this->render('Project/project.html.twig', [
       'project' => $project,
@@ -127,7 +113,7 @@ class ProjectController extends AbstractController
    * @throws NoResultException
    */
   #[Route(path: '/project/like/{id}', name: 'project_like', methods: ['GET'])]
-  public function projectLikeAction(Request $request, string $id): Response
+  public function projectLike(Request $request, string $id): Response
   {
     $type = $request->query->getInt('type');
     $action = (string) $request->query->get('action');
@@ -216,7 +202,7 @@ class ProjectController extends AbstractController
 
   #[Route(path: '/search/{q}', name: 'search', requirements: ['q' => '.+'], methods: ['GET'])]
   #[Route(path: '/search/', name: 'empty_search', defaults: ['q' => null], methods: ['GET'])]
-  public function searchAction(?string $q = null): Response
+  public function search(?string $q = null): Response
   {
     return $this->render('Search/search.html.twig', ['q' => $q]);
   }
@@ -350,7 +336,7 @@ class ProjectController extends AbstractController
    * @throws NoResultException
    */
   #[Route(path: '/translate/project/{id}', name: 'translate_project', methods: ['GET'])]
-  public function translateProjectAction(Request $request, string $id): Response
+  public function translateProject(Request $request, string $id): Response
   {
     if (!$request->query->has('target_language')) {
       return new Response('Target language is required', Response::HTTP_BAD_REQUEST);
@@ -389,7 +375,7 @@ class ProjectController extends AbstractController
   }
 
   #[Route(path: '/translate/custom/project/{id}', name: 'project_custom_translation', methods: ['PUT', 'GET', 'DELETE'])]
-  public function projectCustomTranslationAction(Request $request, string $id): Response
+  public function projectCustomTranslation(Request $request, string $id): Response
   {
     return match ($request->getMethod()) {
       'PUT' => $this->projectCustomTranslationPutAction($request, $id),
@@ -400,14 +386,14 @@ class ProjectController extends AbstractController
   }
 
   #[Route(path: '/translate/custom/project/{id}/list', name: 'project_custom_translation_language_list', methods: ['GET'])]
-  public function projectCustomTranslationLanguageListAction(string $id, ProjectCustomTranslationRepository $repository): Response
+  public function projectCustomTranslationLanguageList(string $id): Response
   {
     $project = $this->project_manager->findProjectIfVisibleToCurrentUser($id);
     if (null === $project) {
       return new Response(null, Response::HTTP_NOT_FOUND);
     }
 
-    return new JsonResponse($repository->listDefinedLanguages($project));
+    return new JsonResponse($this->projectCustomTranslationRepository->listDefinedLanguages($project));
   }
 
   /**
@@ -431,6 +417,29 @@ class ProjectController extends AbstractController
       'project' => $project,
       'are_replies' => true,
     ]);
+  }
+
+  #[Route(path: '/markNotForKids/{id}', name: 'mark_not_for_kids', methods: ['POST'])]
+  public function markNotForKids(string $id): Response
+  {
+    $project = $this->project_manager->find($id);
+    if (null === $project) {
+      return $this->redirectToIndexOnError();
+    }
+    if (self::NOT_FOR_KIDS_MODERATOR == $project->getNotForKids()) {
+      $this->addFlash('snackbar', $this->translator->trans('snackbar.project_not_for_kids_moderator', [], 'catroweb'));
+    } elseif (self::NOT_FOR_KIDS == $project->getNotForKids()) {
+      $project->setNotForKids(false);
+      $this->addFlash('snackbar', $this->translator->trans('snackbar.project_safe_for_kids', [], 'catroweb'));
+    } else {
+      $project->setNotForKids(true);
+      $this->addFlash('snackbar', $this->translator->trans('snackbar.project_not_for_kids', [], 'catroweb'));
+    }
+
+    $this->entity_manager->persist($project);
+    $this->entity_manager->flush();
+
+    return $this->redirectToRoute('program', ['id' => $id]);
   }
 
   protected function redirectToIndexOnError(): RedirectResponse

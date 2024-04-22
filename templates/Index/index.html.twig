@@ -41,8 +41,8 @@
 
   <div id="home-projects">
     {# array values: [api project_type, translation, property to show] #}
+    {# disabled due to performance issues: ['recent', 'newest', 'uploaded'],#}
     {% for category in [
-      ['recent', 'newest', 'uploaded'],
       ['example', 'example', 'author'],
       ['most_downloaded', 'most.downloaded', 'downloads'],
       ['trending', 'trending', 'downloads'],
@@ -71,6 +71,10 @@
                   <span class="project-list__project__name"></span>
                   <div class="project-list__project__property project-list__project__property-uploaded lazyloaded">
                     <i class="material-icons"></i>
+                    <span class="project-list__project__property__value"></span>
+                  </div>
+                  <div class="project-list__project__property project-list__project__property__not-for-kids lazyloaded">
+                    <img class="project-list__not-for-kids-logo" style="display: none">
                     <span class="project-list__project__property__value"></span>
                   </div>
                 </div>
