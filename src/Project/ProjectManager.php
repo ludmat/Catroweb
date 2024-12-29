@@ -535,6 +535,9 @@ class ProjectManager
     return $this->project_repository->getProjects($flavor, $max_version, $limit, $offset, 'uploaded_at');
   }
 
+  /**
+   * @deprecated
+   */
   public function getMostViewedProjects(?string $flavor = null, int $limit = 20, int $offset = 0, string $max_version = ''): array
   {
     return $this->project_repository->getProjects($flavor, $max_version, $limit, $offset, 'views');
@@ -564,6 +567,9 @@ class ProjectManager
     return $this->project_repository->countScratchRemixProjects($flavor, $max_version);
   }
 
+  /**
+   * @deprecated
+   */
   public function getMostDownloadedProjects(?string $flavor = null, int $limit = 20, int $offset = 0, string $max_version = ''): array
   {
     return $this->project_repository->getProjects($flavor, $max_version, $limit, $offset, 'downloads');
@@ -722,8 +728,6 @@ class ProjectManager
     return match ($category) {
       'recent' => $this->getRecentProjects($flavor, $limit, $offset, $max_version),
       'random' => $this->getRandomProjects($flavor, $limit, $offset, $max_version),
-      'most_viewed' => $this->getMostViewedProjects($flavor, $limit, $offset, $max_version),
-      'most_downloaded' => $this->getMostDownloadedProjects($flavor, $limit, $offset, $max_version),
       'example' => $this->getExampleProjects($flavor, $limit, $offset, $max_version),
       'scratch' => $this->getScratchRemixesProjects($flavor, $limit, $offset, $max_version),
       'popular' => $this->getPopularProjects($flavor, $limit, $offset, $max_version),
@@ -735,7 +739,7 @@ class ProjectManager
   public function getProjectsCount(string $category, string $max_version = '', ?string $flavor = null): int
   {
     return match ($category) {
-      'recent', 'random', 'most_viewed', 'most_downloaded', 'trending' => $this->countProjects($flavor, $max_version),
+      'recent', 'random', 'trending' => $this->countProjects($flavor, $max_version),
       'example' => $this->getExampleProjectsCount($flavor, $max_version),
       'scratch' => $this->getScratchRemixesProjectsCount($flavor, $max_version),
       default => 0,

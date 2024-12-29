@@ -2875,7 +2875,7 @@ class ApiContext implements Context
   {
     $response = $this->getKernelBrowser()->getResponse();
 
-    $expected_categories = ['recent', 'random', 'most_downloaded', 'example', 'scratch', 'trending'];
+    $expected_categories = ['recent', 'random', 'example', 'scratch', 'trending'];
     $categories = json_decode($response->getContent(), true, 512, JSON_THROW_ON_ERROR);
     Assert::assertEquals(count($expected_categories), is_countable($categories) ? count($categories) : 0, 'Number of returned projects should be '.count($expected_categories));
 
